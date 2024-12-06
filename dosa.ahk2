@@ -1,0 +1,290 @@
+#Requires AutoHotkey v2.0
+CoordMode "Pixel", "Screen"
+
+DEBUG_MODE := 1
+global KEY_DELAY := 35
+global WHELL_FUNCTION := false
+
+SAY_BOX_X := 879
+SAY_BOX_Y := 1379
+
+BOX_MAX_POINT_X := 2220
+BOX_LOWER_POINT_X := 2485
+PORTION_MAX := BOX_LOWER_POINT_X - BOX_MAX_POINT_X
+
+HP_BOX_MIDDLE_Y := 1228 ; 1216 1241
+MP_BOX_MIDDLE_Y := 1267
+
+HP_MIDDLE_COLOR := 0xFF4D00
+MP_MIDDLE_COLOR := 0xADBED6
+
+
+UI_X_POSITION_PERCENT := 0.0683
+UI_Y_POSITION_PERCENT := 0.777
+
+global RUNNING_STATUS := false
+
+UI_X_START := A_ScreenWidth * UI_X_POSITION_PERCENT
+UI_Y_START := A_ScreenHeight * UI_Y_POSITION_PERCENT
+
+/*
+디버그 로그 출력
+*/
+OutputDebug '바람의나라 도사 헬퍼 시작`n'
+OutputDebug A_ScriptDir "`n"
+OutputDebug "스크린 너비" A_ScreenWidth "스크린 높이" A_ScreenHeight "`n"
+
+
+/*
+스킬 설정
+gongjeung 공증
+heal 기원
+hon 혼마
+*/
+
+gongjeung := 2
+heal := 3
+hon := 4
+
+
+BaramGui := Gui(, "Baram Helper")
+BaramGui.Opt("-Caption +AlwaysOnTop +ToolWindow +LastFound +E0x20")
+global statusText := BaramGui.Add("Text", "x0 y0 w400", "바람헬퍼")
+global altText := BaramGui.Add("Text", "x0 y20 w400", "혼 휠버튼 기능: 비활성화")
+BaramGui.Add("Text", "x400 y0", "F1: 밀대모드, F4: 밀대모드 토글, F2: 1회씩, F3: 리로드, ctrl+F3: 종료, 마우스 버튼4: 타겟 혼마")
+BaramGui.Show("x" UI_X_START " y" UI_Y_START " w1000 h40")
+
+
+debugLog(msg) {
+    if (DEBUG_MODE) {
+        OutputDebug(msg "`n")
+    }
+    else return
+}
+
+
+existSaybox() {
+    color := PixelGetColor(SAY_BOX_X, SAY_BOX_Y)
+    if (color = 0xFFFFFF) {
+        return true
+    }
+    else {
+        return false
+    }
+}
+
+
+getHpPortion() {
+    finded_x := -1
+    finded_y := -1
+    if PixelSearch(&finded_x, &finded_y, BOX_MAX_POINT_X, HP_BOX_MIDDLE_Y - 12, BOX_LOWER_POINT_X, HP_BOX_MIDDLE_Y + 12, HP_MIDDLE_COLOR, 10) {
+        return Round((1 - (finded_x - BOX_MAX_POINT_X) / PORTION_MAX) * 100, 0)
+    }
+    else {
+        return 0.0
+    }
+}
+
+getMpPortion() {
+    finded_x := -1
+    finded_y := -1
+    if PixelSearch(&finded_x, &finded_y, BOX_MAX_POINT_X, MP_BOX_MIDDLE_Y - 12, BOX_LOWER_POINT_X, MP_BOX_MIDDLE_Y + 12, MP_MIDDLE_COLOR, 10) {
+        return Round((1 - (finded_x - BOX_MAX_POINT_X) / PORTION_MAX) * 100, 0)
+    }
+    else {
+        return 0.0
+    }
+}
+
+
+fixTargetTab() {
+    Send("{Esc}")
+    Sleep(35)
+    Send("{Tab}")
+    Sleep(45)
+    Send("{Tab}")
+    Sleep(KEY_DELAY)
+}
+
+selfHeal() {
+    Send("{Esc}")
+    Sleep(KEY_DELAY)
+    Send("{" heal "}")
+    Sleep(KEY_DELAY)
+    tempArrowDisable()
+    Send("{Home}")
+    Sleep(KEY_DELAY)
+    Send("{Enter}")
+    Sleep(KEY_DELAY)
+    arrowEnable()
+}
+
+arrowEnable() {
+    Hotkey("Up", "Off")
+    Hotkey("Down", "Off")
+    Hotkey("Left", "Off")
+    Hotkey("Right", "Off")
+}
+
+tempArrowDisable() {
+    Hotkey("Up", "On")
+    Hotkey("Down", "On")
+    Hotkey("Left", "On")
+    Hotkey("Right", "On")
+}
+
+
+arrowEnable()
+
+XButton1:: {
+    Send("{Esc}")
+    Sleep(KEY_DELAY)
+    Send("{" hon "}")
+    tempArrowDisable()
+    Loop 50 {
+        if existSaybox() {
+            break
+        }
+        Sleep(1)
+    }
+    Send("{Lbutton}")
+    Sleep(KEY_DELAY + 10)
+    loop 50 {
+        if existSaybox() {
+            break
+        }
+        else {
+            Sleep(1)
+        }
+    }
+    Send("{Enter}")
+    Sleep(KEY_DELAY)
+    fixTargetTab()
+    arrowEnable()
+}
+
+XButton2:: {
+    global WHELL_FUNCTION := !WHELL_FUNCTION
+    altText.Text := WHELL_FUNCTION ? "혼 휠버튼 기능: 활성화" : "휠버튼 기능: 비활성화"
+}
+
+
+Up:: {
+    ; Send("{Up}")
+}
+Down:: {
+    ; Send("{Down}")
+}
+Left:: {
+    ; Send("{Left}")
+}
+Right:: {
+    ; Send("{Right}")
+}
+
+F1:: {
+    Loop {
+        if RUNNING_STATUS {
+            if (existSaybox()) {
+                fixTargetTab()
+            }
+            Send("{" heal "}")
+            if getMpPortion() < 30 {
+                Send("{" gongjeung "}")
+            }
+            if getHpPortion() < 30 {
+                selfHeal()
+                fixTargetTab()
+            }
+        }
+        Sleep(10)
+    }
+}
+
+F4:: {
+    global RUNNING_STATUS := !RUNNING_STATUS
+    statusText.Text := RUNNING_STATUS ? "밀대모드 실행중" : "밀대모드 중지"
+}
+
+F2:: {
+    if (existSaybox()) {
+        fixTargetTab()
+    }
+    Send("{" heal "}")
+    if getMpPortion() < 30 {
+        Send("{" gongjeung "}")
+    }
+    if getHpPortion() < 30 {
+        selfHeal()
+        fixTargetTab()
+    }
+    Sleep(20)
+}
+F3:: Reload
+^F3:: ExitApp
+
+~WheelUp:: {
+    if not WHELL_FUNCTION {
+        Sleep(KEY_DELAY)
+        return
+    }
+    loop 2 {
+        Send("{" hon "}")
+        Loop KEY_DELAY + 10 {
+            if existSaybox() {
+                break
+            }
+            Sleep(1)
+            if A_Index > KEY_DELAY + 9 {
+                Send("{Esc}")
+                Sleep(KEY_DELAY)
+                return
+            }
+        }
+        Send("{Left}")
+        Sleep(KEY_DELAY)
+        Send("{Enter}")
+        Sleep(KEY_DELAY)
+    }
+}
+
+~WheelDown:: {
+    if not WHELL_FUNCTION {
+        Sleep(KEY_DELAY)
+        return
+    }
+    loop 2 {
+        Send("{" hon "}")
+        Loop KEY_DELAY + 10 {
+            if existSaybox() {
+                break
+            }
+            Sleep(1)
+            if A_Index > KEY_DELAY + 9 {
+                Send("{Esc}")
+                Sleep(KEY_DELAY)
+                return
+            }
+        }
+        Send("{Right}")
+        Sleep(KEY_DELAY)
+        Send("{Enter}")
+        Sleep(KEY_DELAY)
+    }
+}
+
+~MButton:: {
+    if not WHELL_FUNCTION {
+        return
+    }
+    Send("{Esc}")
+    Sleep(KEY_DELAY)
+    Send("{" hon "}")
+    Loop KEY_DELAY + 10 {
+        if existSaybox() {
+            break
+        }
+        Sleep(1)
+    }
+    Send("{Home}")
+}
