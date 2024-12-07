@@ -55,20 +55,12 @@ chum1 := 0 ; 첨1 단축키
 
 BaramGui := Gui(, "Baram Helper")
 BaramGui.Opt("-Caption +AlwaysOnTop +ToolWindow +LastFound +E0x20")
-; WinSetStyle("Baram Helper", "TransColor -0xC40000")
 global statusText := BaramGui.Add("Text", "x0 y5 w150", "주술 헬퍼")
 global toggleText := BaramGui.Add("Text", "x150 y5 w120", "반복 : 비활성화")
 global altText := BaramGui.Add("Text", "x0 y25 w120", "휠디버프: 비활성화")
 BaramGui.Add("Text", "x150 y25", "F4: 첨시전, F1: 반복토글, F2: 회복, F3: 리로드, ctrl+F3: 종료, MB3:휠기능ON(위아래) MB4: 타겟 저주, F7: 타이머 on off")
 global guiTimer := BaramGui.Add("Text", "x810 y5 w400	", "시간 : " FormatTime(A_Now, "yy/MM/dd HH:mm:ss"))
-
-Garigae := Gui(, "Garigae")
-Garigae.SetFont("s23", "Malgun Gothic")
-Garigae.Opt("-Caption +AlwaysOnTop +ToolWindow +LastFound +E0x20")
-Garigae.Add("Text","x0 y0 w260 h40","옛바붕이")
 BaramGui.Show("x" UI_X_START " y" UI_Y_START " w1100 h40")
-Garigae.Show("x2083 y1125 w260 h40")
-
 SetTimer(timeFunc, 1000)
 
 debugLog(msg) {

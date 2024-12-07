@@ -18,11 +18,12 @@ MP_BOX_MIDDLE_Y := 1267
 HP_MIDDLE_COLOR := 0xFF4D00
 MP_MIDDLE_COLOR := 0xADBED6
 
-
 UI_X_POSITION_PERCENT := 0.0683
-UI_Y_POSITION_PERCENT := 0.777
+UI_Y_POSITION_PERCENT := 0.78
 
 global RUNNING_STATUS := false
+global timerToggle := false
+global timerStart := 0 ; 타이머 시작 시간
 
 UI_X_START := A_ScreenWidth * UI_X_POSITION_PERCENT
 UI_Y_START := A_ScreenHeight * UI_Y_POSITION_PERCENT
@@ -49,11 +50,13 @@ hon := 4
 
 BaramGui := Gui(, "Baram Helper")
 BaramGui.Opt("-Caption +AlwaysOnTop +ToolWindow +LastFound +E0x20")
-global statusText := BaramGui.Add("Text", "x0 y0 w400", "바람헬퍼")
-global altText := BaramGui.Add("Text", "x0 y20 w400", "혼 휠버튼 기능: 비활성화")
-BaramGui.Add("Text", "x400 y0", "F1: 밀대모드, F4: 밀대모드 토글, F2: 1회씩, F3: 리로드, ctrl+F3: 종료, 마우스 버튼4: 타겟 혼마")
-BaramGui.Show("x" UI_X_START " y" UI_Y_START " w1000 h40")
-
+global statusText := BaramGui.Add("Text", "x0 y5 w150", "도사 헬퍼")
+global toggleText := BaramGui.Add("Text", "x150 y5 w120", "반복 : 비활성화")
+global altText := BaramGui.Add("Text", "x0 y25 w120", "휠디버프: 비활성화")
+BaramGui.Add("Text", "x150 y25", "F4: 밀대모드, F1: 반복토글, F2: 회복, F3: 리로드, ctrl+F3: 종료, MB3:휠기능ON(위아래) MB4: 타겟 저주, F7: 타이머 on off")
+global guiTimer := BaramGui.Add("Text", "x810 y5 w400	", "시간 : " FormatTime(A_Now, "yy/MM/dd HH:mm:ss"))
+BaramGui.Show("x" UI_X_START " y" UI_Y_START " w1100 h40")
+SetTimer(timeFunc, 1000)
 
 debugLog(msg) {
     if (DEBUG_MODE) {
@@ -182,7 +185,8 @@ Right:: {
     ; Send("{Right}")
 }
 
-F1:: {
+F4:: {
+    statusText.Text := "도사 헬퍼 - 밀대 모드"
     Loop {
         if RUNNING_STATUS {
             if (existSaybox()) {
@@ -201,9 +205,9 @@ F1:: {
     }
 }
 
-F4:: {
+F1:: {
     global RUNNING_STATUS := !RUNNING_STATUS
-    statusText.Text := RUNNING_STATUS ? "밀대모드 실행중" : "밀대모드 중지"
+    toggleText.Text := RUNNING_STATUS ? "반복 ON" : "반복 OFF"
 }
 
 F2:: {
@@ -214,7 +218,7 @@ F2:: {
     if getMpPortion() < 30 {
         Send("{" gongjeung "}")
     }
-    if getHpPortion() < 30 {
+    if getHpPortion() < 50 {
         selfHeal()
         fixTargetTab()
     }
@@ -222,6 +226,38 @@ F2:: {
 }
 F3:: Reload
 ^F3:: ExitApp
+
+
+millisecToTime(msec) {
+	secs := floor(mod((msec / 1000),60))
+	mins := floor(mod((msec / (1000 * 60)), 60) )
+	hour := floor(mod((msec / (1000 * 60 * 60)) , 24))
+	return Format("{:02}:{:02}:{:02}",hour,mins,secs)
+}
+
+timerFunc() {
+    
+    guiTimer.Text := "타이머: " millisecToTime(A_TickCount - timerStart)
+}
+
+timeFunc() {
+    guiTimer.Text := "시간 : " FormatTime(A_Now, "yy/MM/dd HH:mm:ss")
+}
+F7::{
+; 타이머가 이미 켜져 있을 경우 초기화하고 종료, 켜져 있지 않으면 켜기
+    if (timerToggle) {
+        global timerToggle := false
+        SetTimer(timerFunc, 0)
+        SetTimer(timeFunc, 1000)
+    }
+    else {
+        global timerToggle := true
+        SetTimer(timeFunc, 0)
+        global timerStart := A_TickCount
+        SetTimer(timerFunc, 200)
+    }
+}
+
 
 ~WheelUp:: {
     if not WHELL_FUNCTION {
