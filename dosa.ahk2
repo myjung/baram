@@ -3,7 +3,7 @@ CoordMode "Pixel", "Screen"
 
 DEBUG_MODE := 1
 global KEY_DELAY := 35
-global WHELL_FUNCTION := false
+
 
 SAY_BOX_X := 879
 SAY_BOX_Y := 1379
@@ -20,9 +20,13 @@ MP_MIDDLE_COLOR := 0xADBED6
 
 UI_X_POSITION_PERCENT := 0.0683
 UI_Y_POSITION_PERCENT := 0.78
+global HOTKEY_TOGGLE := False
 
+
+global AUTO_DEBUFF := false
 global RUNNING_STATUS := false
 global timerToggle := false
+
 global timerStart := 0 ; 타이머 시작 시간
 
 UI_X_START := A_ScreenWidth * UI_X_POSITION_PERCENT
@@ -49,11 +53,12 @@ hon := 4
 
 
 BaramGui := Gui(, "Baram Helper")
-BaramGui.Opt("-Caption +AlwaysOnTop +ToolWindow +LastFound +E0x20")
+BaramGui.Opt("-Caption +AlwaysOnTop +E0x20")
 global statusText := BaramGui.Add("Text", "x0 y5 w150", "도사 헬퍼")
 global toggleText := BaramGui.Add("Text", "x150 y5 w120", "반복 : 비활성화")
-global altText := BaramGui.Add("Text", "x0 y25 w120", "휠디버프: 비활성화")
-BaramGui.Add("Text", "x150 y25", "F4: 밀대모드, F1: 반복토글, F2: 회복, F3: 리로드, ctrl+F3: 종료, MB3:휠기능ON(위아래) MB4: 타겟 저주, F7: 타이머 on off")
+global debufToggleText := BaramGui.Add("Text", "x300 y5 w120", "반복디버프 : 비활성화")
+global altText := BaramGui.Add("Text", "x0 y25 w120", "채팅키: 비활성화")
+BaramGui.Add("Text", "x150 y25", "F1: 반복토글, F2: 회복, F3: 리로드, ctrl+F3: 종료, MB3:휠기능ON(위아래) MB4: 타겟 저주, F7: 타이머 on off")
 global guiTimer := BaramGui.Add("Text", "x810 y5 w400	", "시간 : " FormatTime(A_Now, "yy/MM/dd HH:mm:ss"))
 BaramGui.Show("x" UI_X_START " y" UI_Y_START " w1100 h40")
 SetTimer(timeFunc, 1000)
@@ -137,6 +142,35 @@ tempArrowDisable() {
 }
 
 
+autoTargetCastSpell(skill, direction_left:=true){
+    Send("{" skill " down}")
+    loop 35 {
+        if existSaybox(){
+            break
+        }
+        Sleep(2)
+    }
+    if direction_left {
+        Send("{left down}")
+    }else{
+        Send("{right down}")
+    }
+    Sleep(35)
+    Send("{Enter down}")
+}
+
+allKeyUp(){
+    Send("{Enter up}")
+    Sleep(10)
+    Send("{4 up}")
+    Sleep(10)
+    Send("{Left up}")
+    Sleep(10)
+    Send("{Right up}")
+    Sleep(10)
+    Send("{Esc}")
+}
+
 arrowEnable()
 
 XButton1:: {
@@ -166,11 +200,16 @@ XButton1:: {
     arrowEnable()
 }
 
-XButton2:: {
-    global WHELL_FUNCTION := !WHELL_FUNCTION
-    altText.Text := WHELL_FUNCTION ? "혼 휠버튼 기능: 활성화" : "휠버튼 기능: 비활성화"
+
+q::{
+    Send("{Esc}")
+    Sleep(KEY_DELAY)
+    autoTargetCastSpell(hon)
 }
 
+e::{
+    allKeyUp()
+}
 
 Up:: {
     ; Send("{Up}")
@@ -186,24 +225,8 @@ Right:: {
 }
 
 F4:: {
-    statusText.Text := "도사 헬퍼 - 밀대 모드"
-    Loop {
-        if RUNNING_STATUS {
-            if (existSaybox()) {
-                fixTargetTab()
-            }
-            Send("{" heal "}")
-            if getMpPortion() < 30 {
-                Send("{" gongjeung "}")
-            }
-            if getHpPortion() < 30 {
-                selfHeal()
-                fixTargetTab()
-            }
-        }
-        Sleep(10)
-    }
 }
+
 
 F1:: {
     global RUNNING_STATUS := !RUNNING_STATUS
@@ -211,40 +234,74 @@ F1:: {
 }
 
 F2:: {
-    if (existSaybox()) {
-        fixTargetTab()
-    }
-    Send("{" heal "}")
-    if getMpPortion() < 30 {
-        Send("{" gongjeung "}")
-    }
-    if getHpPortion() < 50 {
-        selfHeal()
-        fixTargetTab()
-    }
-    Sleep(20)
+    debufToggleText.Text := AUTO_DEBUFF ? "디버프 ON" : "디버프 OFF"
+    global AUTO_DEBUFF := !AUTO_DEBUFF
 }
 F3:: Reload
 ^F3:: ExitApp
 
+`:: {
+    selfHeal()
+    fixTargetTab()
+}
+
+leftSpell(spellkey) {
+    Send("{" spellkey " down}")
+    Sleep(KEY_DELAY)
+    Send("{Left down}")
+    Sleep(KEY_DELAY)
+    Send("{Enter down}")
+    Sleep(KEY_DELAY)
+}
+
+rightSpell(spellkey) {
+    Send("{" spellkey " down}")
+    Sleep(KEY_DELAY)
+    Send("{Right down}")
+    Sleep(KEY_DELAY)
+    Send("{Enter down}")
+    Sleep(KEY_DELAY)
+}
+
+keyUp(spellkey) {
+    Send("{" spellkey " up}")
+    Send("{Left up}")
+    Send("{Right up}")
+    Send("{Enter up}")
+}
 
 millisecToTime(msec) {
-	secs := floor(mod((msec / 1000),60))
-	mins := floor(mod((msec / (1000 * 60)), 60) )
-	hour := floor(mod((msec / (1000 * 60 * 60)) , 24))
-	return Format("{:02}:{:02}:{:02}",hour,mins,secs)
+    secs := floor(mod((msec / 1000), 60))
+    mins := floor(mod((msec / (1000 * 60)), 60))
+    hour := floor(mod((msec / (1000 * 60 * 60)), 24))
+    return Format("{:02}:{:02}:{:02}", hour, mins, secs)
 }
 
 timerFunc() {
-    
+
     guiTimer.Text := "타이머: " millisecToTime(A_TickCount - timerStart)
 }
 
 timeFunc() {
     guiTimer.Text := "시간 : " FormatTime(A_Now, "yy/MM/dd HH:mm:ss")
 }
-F7::{
-; 타이머가 이미 켜져 있을 경우 초기화하고 종료, 켜져 있지 않으면 켜기
+
+^CapsLock:: {
+    if HOTKEY_TOGGLE {
+        global HOTKEY_TOGGLE := False
+        altText.Text := "채팅키: 비활성화"
+        Hotkey("q", "Off")
+        Hotkey("e", "Off")
+    }
+    else {
+        global HOTKEY_TOGGLE := True
+        altText.Text := "채팅키: 활성화"
+        Hotkey("q", "On")
+        Hotkey("e", "On")
+    }
+}
+F7:: {
+    ; 타이머가 이미 켜져 있을 경우 초기화하고 종료, 켜져 있지 않으면 켜기
     if (timerToggle) {
         global timerToggle := false
         SetTimer(timerFunc, 0)
@@ -259,68 +316,36 @@ F7::{
 }
 
 
-~WheelUp:: {
-    if not WHELL_FUNCTION {
-        Sleep(KEY_DELAY)
-        return
-    }
-    loop 2 {
-        Send("{" hon "}")
-        Loop KEY_DELAY + 10 {
-            if existSaybox() {
-                break
-            }
-            Sleep(1)
-            if A_Index > KEY_DELAY + 9 {
-                Send("{Esc}")
-                Sleep(KEY_DELAY)
-                return
-            }
+Hotkey("q", "Off")
+Hotkey("e", "Off")
+
+statusText.Text := "도사 헬퍼 - 밀대 모드"
+Loop {
+    if RUNNING_STATUS {
+        if (existSaybox()) {
+            fixTargetTab()
         }
-        Send("{Left}")
-        Sleep(KEY_DELAY)
-        Send("{Enter}")
-        Sleep(KEY_DELAY)
+        Loop 3{
+            Send("{" heal "}")
+            Sleep(100)
+        }
+        if AUTO_DEBUFF {
+            Send("{Esc}")
+            Sleep(35)
+            autoTargetCastSpell(hon)
+            allKeyUp()
+            Sleep(30)
+            fixTargetTab()
+        }
+        if getMpPortion() < 30 {
+            Send("{" gongjeung "}")
+        }
+        if getHpPortion() < 30 {
+            selfHeal()
+            fixTargetTab()
+        }
     }
+    Sleep(20)
 }
 
-~WheelDown:: {
-    if not WHELL_FUNCTION {
-        Sleep(KEY_DELAY)
-        return
-    }
-    loop 2 {
-        Send("{" hon "}")
-        Loop KEY_DELAY + 10 {
-            if existSaybox() {
-                break
-            }
-            Sleep(1)
-            if A_Index > KEY_DELAY + 9 {
-                Send("{Esc}")
-                Sleep(KEY_DELAY)
-                return
-            }
-        }
-        Send("{Right}")
-        Sleep(KEY_DELAY)
-        Send("{Enter}")
-        Sleep(KEY_DELAY)
-    }
-}
 
-~MButton:: {
-    if not WHELL_FUNCTION {
-        return
-    }
-    Send("{Esc}")
-    Sleep(KEY_DELAY)
-    Send("{" hon "}")
-    Loop KEY_DELAY + 10 {
-        if existSaybox() {
-            break
-        }
-        Sleep(1)
-    }
-    Send("{Home}")
-}
