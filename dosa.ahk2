@@ -26,6 +26,8 @@ global HOTKEY_TOGGLE := False
 global AUTO_DEBUFF := false
 global RUNNING_STATUS := false
 global timerToggle := false
+global selfhealMode := false
+
 
 global timerStart := 0 ; 타이머 시작 시간
 
@@ -50,15 +52,16 @@ hon 혼마
 gongjeung := 2
 heal := 3
 hon := 4
-
+MP_POTION := "z"
 
 BaramGui := Gui(, "Baram Helper")
 BaramGui.Opt("-Caption +AlwaysOnTop +E0x20")
 global statusText := BaramGui.Add("Text", "x0 y5 w150", "도사 헬퍼")
-global toggleText := BaramGui.Add("Text", "x150 y5 w120", "반복 : 비활성화")
-global debufToggleText := BaramGui.Add("Text", "x300 y5 w120", "반복디버프 : 비활성화")
-global altText := BaramGui.Add("Text", "x0 y25 w120", "채팅키: 비활성화")
-BaramGui.Add("Text", "x150 y25", "F1: 반복토글, F2: 회복, F3: 리로드, ctrl+F3: 종료, MB3:휠기능ON(위아래) MB4: 타겟 저주, F7: 타이머 on off")
+global toggleText := BaramGui.Add("Text", "x150 y5 w120", "반복 : OFF")
+global debufToggleText := BaramGui.Add("Text", "x300 y5 w120", "디버프 : OFF")
+global selfHealToggleText := BaramGui.Add("Text", "x450 y5 w120", "자가회복 : OFF")
+global altText := BaramGui.Add("Text", "x0 y25 w120", "채팅모드")
+BaramGui.Add("Text", "x150 y25", "F1: 반복토글, F2: 디버프, F3: 셀프힐, F4: 리로드 ,ctrl+F4: 종료, MB4: 타겟 저주, F7: 타이머 on off")
 global guiTimer := BaramGui.Add("Text", "x810 y5 w400	", "시간 : " FormatTime(A_Now, "yy/MM/dd HH:mm:ss"))
 BaramGui.Show("x" UI_X_START " y" UI_Y_START " w1100 h40")
 SetTimer(timeFunc, 1000)
@@ -81,6 +84,23 @@ existSaybox() {
     }
 }
 
+useItemBySlot(slot) {
+    Send("{Ctrl down}")
+    Sleep(10)
+    Send(slot)
+    Sleep(10)
+    Send("{Ctrl up}")
+}
+
+useSkillbyAlpabet(skill_key) {
+    Send("{Shift down}")
+    Sleep(10)
+    Send("z")
+    Sleep(10)
+    Send("{Shift up}")
+    Sleep(35)
+    Send(skill_key)
+}
 
 getHpPortion() {
     finded_x := -1
@@ -114,17 +134,17 @@ fixTargetTab() {
     Sleep(KEY_DELAY)
 }
 
-selfHeal() {
+selfHeal(count := 1) {
     Send("{Esc}")
     Sleep(KEY_DELAY)
-    Send("{" heal "}")
-    Sleep(KEY_DELAY)
-    tempArrowDisable()
-    Send("{Home}")
-    Sleep(KEY_DELAY)
-    Send("{Enter}")
-    Sleep(KEY_DELAY)
-    arrowEnable()
+    loop count {
+        Send("{" heal "}")
+        Sleep(KEY_DELAY)
+        Send("{Home}")
+        Sleep(KEY_DELAY)
+        Send("{Enter}")
+        Sleep(100)
+    }
 }
 
 arrowEnable() {
@@ -142,24 +162,24 @@ tempArrowDisable() {
 }
 
 
-autoTargetCastSpell(skill, direction_left:=true){
+autoTargetCastSpell(skill, direction_left := true) {
     Send("{" skill " down}")
     loop 35 {
-        if existSaybox(){
+        if existSaybox() {
             break
         }
         Sleep(2)
     }
     if direction_left {
         Send("{left down}")
-    }else{
+    } else {
         Send("{right down}")
     }
     Sleep(35)
     Send("{Enter down}")
 }
 
-allKeyUp(){
+allKeyUp() {
     Send("{Enter up}")
     Sleep(10)
     Send("{4 up}")
@@ -201,14 +221,47 @@ XButton1:: {
 }
 
 
-q::{
+q:: {
     Send("{Esc}")
     Sleep(KEY_DELAY)
     autoTargetCastSpell(hon)
 }
 
-e::{
+e:: {
     allKeyUp()
+}
+
+t:: {
+    global RUNNING_STATUS := false
+    Sleep(50)
+    Send("{Esc}")
+    Sleep(KEY_DELAY)
+    useSkillbyAlpabet("r")
+}
+
+b:: {
+    global RUNNING_STATUS := false
+    fixTargetTab()
+    Send("9")
+    Sleep(35)
+    Send("8")
+    Sleep(35)
+    Send("7")
+    Sleep(35)
+    useItemBySlot("z")
+    loop 12 {
+        Sleep(35)
+        Send(gongjeung)
+        Sleep(100)
+        if getMpPortion() > 30 {
+            break
+        }
+        else {
+            Sleep(35)
+        }
+        useItemBySlot("z")
+    }
+
 }
 
 Up:: {
@@ -224,24 +277,25 @@ Right:: {
     ; Send("{Right}")
 }
 
-F4:: {
-}
-
 
 F1:: {
     global RUNNING_STATUS := !RUNNING_STATUS
-    toggleText.Text := RUNNING_STATUS ? "반복 ON" : "반복 OFF"
+    toggleText.Text := RUNNING_STATUS ? "반복 : ON" : "반복 : OFF"
 }
 
 F2:: {
-    debufToggleText.Text := AUTO_DEBUFF ? "디버프 ON" : "디버프 OFF"
     global AUTO_DEBUFF := !AUTO_DEBUFF
+    debufToggleText.Text := AUTO_DEBUFF ? "디버프 : ON" : "디버프 : OFF"
 }
-F3:: Reload
-^F3:: ExitApp
+F3:: {
+    global selfhealMode := !selfhealMode
+    selfHealToggleText.Text := selfhealMode ? "자가회복 : ON" : "자가회복 : OFF"
+}
+F4:: Reload
+^F4:: ExitApp
 
 `:: {
-    selfHeal()
+    selfHeal(2)
     fixTargetTab()
 }
 
@@ -286,20 +340,38 @@ timeFunc() {
     guiTimer.Text := "시간 : " FormatTime(A_Now, "yy/MM/dd HH:mm:ss")
 }
 
-^CapsLock:: {
+
+toggleHotkey() {
     if HOTKEY_TOGGLE {
         global HOTKEY_TOGGLE := False
-        altText.Text := "채팅키: 비활성화"
+        altText.Text := "채팅모드"
         Hotkey("q", "Off")
         Hotkey("e", "Off")
+        Hotkey("t", "Off")
+        Hotkey("b", "Off")
     }
     else {
         global HOTKEY_TOGGLE := True
-        altText.Text := "채팅키: 활성화"
+        altText.Text := "단축키모드"
         Hotkey("q", "On")
         Hotkey("e", "On")
+        Hotkey("t", "On")
+        Hotkey("b", "On")
     }
 }
+
+^CapsLock:: {
+    toggleHotkey()
+}
+
+
+~':: {
+    if HOTKEY_TOGGLE {
+        toggleHotkey()
+    }
+}
+
+
 F7:: {
     ; 타이머가 이미 켜져 있을 경우 초기화하고 종료, 켜져 있지 않으면 켜기
     if (timerToggle) {
@@ -318,6 +390,8 @@ F7:: {
 
 Hotkey("q", "Off")
 Hotkey("e", "Off")
+Hotkey("t", "off")
+Hotkey("b", "off")
 
 statusText.Text := "도사 헬퍼 - 밀대 모드"
 Loop {
@@ -325,27 +399,29 @@ Loop {
         if (existSaybox()) {
             fixTargetTab()
         }
-        Loop 3{
+        Send("1")
+        Loop 3 {
+            Sleep(50)
             Send("{" heal "}")
-            Sleep(100)
         }
         if AUTO_DEBUFF {
             Send("{Esc}")
-            Sleep(35)
+            Sleep(100)
             autoTargetCastSpell(hon)
+            Sleep(100)
             allKeyUp()
-            Sleep(30)
             fixTargetTab()
         }
         if getMpPortion() < 30 {
             Send("{" gongjeung "}")
         }
-        if getHpPortion() < 30 {
-            selfHeal()
-            fixTargetTab()
+        if selfhealMode {
+            if getHpPortion() < 30 {
+                selfHeal(2)
+                fixTargetTab()
+            }
         }
+
     }
     Sleep(20)
 }
-
-
