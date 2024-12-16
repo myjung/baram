@@ -22,6 +22,7 @@ UI_X_POSITION_PERCENT := 0.0683
 UI_Y_POSITION_PERCENT := 0.78
 
 global RUNNING_STATUS := false
+global HOTKEY_TOGGLE := False
 global timerToggle := false
 global timerStart := 0 ; 타이머 시작 시간
 
@@ -35,7 +36,6 @@ OutputDebug '바람의나라 주술 헬퍼 시작`n'
 OutputDebug A_ScriptDir "`n"
 OutputDebug "스크린 너비" A_ScreenWidth "스크린 높이" A_ScreenHeight "`n"
 
-
 /*
 스킬 설정
 gongjeung 공증
@@ -47,6 +47,7 @@ gongjeung := 2 ; 공증 단축키
 heal := 3 ; 기원 단축키
 hon := 4 ; 저주 단축키
 jungdok := 5 ; 중독 단축키
+julmang := 6 ; 절망 단축키
 mujang := 7 ; 무장 단축키
 boho := 8 ; 보호 단축키
 chum0 := 9 ; 첨0 단축키
@@ -56,8 +57,10 @@ chum1 := 0 ; 첨1 단축키
 BaramGui := Gui(, "Baram Helper")
 BaramGui.Opt("-Caption +AlwaysOnTop +ToolWindow +LastFound +E0x20")
 global statusText := BaramGui.Add("Text", "x0 y5 w150", "주술 헬퍼")
-global toggleText := BaramGui.Add("Text", "x150 y5 w120", "반복 : 비활성화")
-global altText := BaramGui.Add("Text", "x0 y25 w120", "휠디버프: 비활성화")
+global toggleText := BaramGui.Add("Text", "x150 y5 w120", "반복 : OFF")
+global debufToggleText := BaramGui.Add("Text", "x300 y5 w120", "디버프 : OFF")
+global selfHealToggleText := BaramGui.Add("Text", "x450 y5 w120", "자가회복 : OFF")
+global altText := BaramGui.Add("Text", "x0 y25 w120", "채팅모드")
 BaramGui.Add("Text", "x150 y25", "F4: 첨시전, F1: 반복토글, F2: 회복, F3: 리로드, ctrl+F3: 종료, MB3:휠기능ON(위아래) MB4: 타겟 저주, F7: 타이머 on off")
 global guiTimer := BaramGui.Add("Text", "x810 y5 w400	", "시간 : " FormatTime(A_Now, "yy/MM/dd HH:mm:ss"))
 BaramGui.Show("x" UI_X_START " y" UI_Y_START " w1100 h40")
@@ -119,28 +122,11 @@ selfHeal() {
     Sleep(KEY_DELAY)
 }
 
-arrowEnable() {
-    Hotkey("Up", "Off")
-    Hotkey("Down", "Off")
-    Hotkey("Left", "Off")
-    Hotkey("Right", "Off")
-}
-
-tempArrowDisable() {
-    Hotkey("Up", "On")
-    Hotkey("Down", "On")
-    Hotkey("Left", "On")
-    Hotkey("Right", "On")
-}
-
-
-arrowEnable()
 
 XButton1:: {
     Send("{Esc}")
     Sleep(KEY_DELAY)
     Send("{" hon "}")
-    tempArrowDisable()
     Loop 50 {
         if existSaybox() {
             break
@@ -160,7 +146,6 @@ XButton1:: {
     Send("{Enter}")
     Sleep(KEY_DELAY)
     fixTargetTab()
-    arrowEnable()
 }
 
 XButton2:: {
@@ -169,19 +154,6 @@ XButton2:: {
 }
 
 
-Up:: {
-    ; Send("{Up}")
-}
-Down:: {
-    ; Send("{Down}")
-}
-Left:: {
-    ; Send("{Left}")
-}
-Right:: {
-    ; Send("{Right}")
-}
-
 F4:: {
     bomu_time := 40000
     wait_mili := 20
@@ -189,22 +161,22 @@ F4:: {
     statusText.Text := "주술 헬퍼 - 첨모드"
     Loop {
         if not RUNNING_STATUS {
-            Sleep(100)
+            Sleep(50)
         }
         else {
             if (existSaybox()) {
                 fixTargetTab()
             }
-
-            if getMpPortion() < 40 {
-                Send("{" gongjeung "}")
-            }
-            else if getHpPortion() < 80 {
+            
+            if getHpPortion() < 80 {
                 selfHeal()
-                fixTargetTab()
+            }
+            if getMpPortion() < 30 {
+                Send("{" gongjeung "}")
             }
             else {
                 Send("{" chum1 "}")
+                Sleep(15)
                 Send("{" chum0 "}")
             }
             Sleep(wait_mili)
@@ -273,6 +245,84 @@ F7::{
     }
 }
 
+autoTargetCastSpell(skill, direction_left := true) {
+    Send("{" skill " down}")
+    loop 50 {
+        if existSaybox() {
+            if direction_left {
+                Send("{left down}")
+            } else {
+                Send("{right down}")
+            }
+            Sleep(35)
+            Send("{Enter down}")
+            break
+        }
+        Sleep(1)
+    }
+    return (skill, direction_left)
+}
+
+allKeyUp() {
+    Send("{Enter up}")
+    Sleep(10)
+    Send("{4 up}")
+    Sleep(10)
+    Send("{5 up}")
+    Sleep(10)
+    Send("{Left up}")
+    Sleep(10)
+    Send("{Right up}")
+    Sleep(10)
+    Send("{Esc}")
+}
+toggleHotkey() {
+    if HOTKEY_TOGGLE {
+        global HOTKEY_TOGGLE := False
+        altText.Text := "채팅모드"
+        Hotkey("q", "Off")
+        Hotkey("w", "Off")
+        Hotkey("e", "Off")
+    }
+    else {
+        global HOTKEY_TOGGLE := True
+        altText.Text := "단축키모드"
+        Hotkey("q", "On")
+        Hotkey("w", "On")
+        Hotkey("e", "On")
+    }
+}
+
+^CapsLock:: {
+    toggleHotkey()
+}
+
+
+q:: {
+    Send("{Esc}")
+    Sleep(KEY_DELAY)
+    autoTargetCastSpell(hon)
+}
+
+
+w::{
+    Send("{Esc}")
+    Sleep(KEY_DELAY)
+    autoTargetCastSpell(jungdok)
+}
+
+e:: {
+    allKeyUp()
+}
+
+
+~':: {
+    if HOTKEY_TOGGLE {
+        toggleHotkey()
+    }
+}
+
+
 ~WheelUp:: {
     if not WHELL_FUNCTION {
         Sleep(KEY_DELAY)
@@ -280,7 +330,7 @@ F7::{
     }
     loop 2 {
         Sleep(KEY_DELAY)
-        Send("{" hon "}")
+        Send("{" julmang "}")
         Loop KEY_DELAY {
             if existSaybox() {
                 break
